@@ -33,14 +33,22 @@ jobs:
           mkdir -p __/auth __/firebase
           # Extensionless HTML pages are saved as .html: GitHub Pages serves /__/auth/handler
           # from handler.html with the right content type (an extensionless file would download).
-          curl -fsSL "$SRC/__/auth/handler"       -o __/auth/handler.html
-          curl -fsSL "$SRC/__/auth/handler.js"    -o __/auth/handler.js
-          curl -fsSL "$SRC/__/auth/experiments.js" -o __/auth/experiments.js
-          curl -fsSL "$SRC/__/auth/iframe"        -o __/auth/iframe.html
-          curl -fsSL "$SRC/__/auth/iframe.js"     -o __/auth/iframe.js
-          curl -fsSL "$SRC/__/auth/links"         -o __/auth/links.html
-          curl -fsSL "$SRC/__/auth/links.js"      -o __/auth/links.js
-          curl -fsSL "$SRC/__/firebase/init.json" -o __/firebase/init.json
+          # Required files: the job fails if any of these can't be fetched.
+          get() { code=$(curl -sSL -w '%{http_code}' "$SRC/$1" -o "$2"); echo "$code $1"; [ "$code" = "200" ]; }
+          get __/auth/handler        __/auth/handler.html
+          get __/auth/handler.js     __/auth/handler.js
+          get __/auth/experiments.js __/auth/experiments.js
+          get __/auth/iframe         __/auth/iframe.html
+          get __/auth/iframe.js      __/auth/iframe.js
+          # Optional files (only served when Firebase Hosting is set up, or only used by
+          # email-link sign-in): fetched if available, otherwise skipped / filled in below.
+          get __/auth/links          __/auth/links.html || rm -f __/auth/links.html
+          get __/auth/links.js       __/auth/links.js   || rm -f __/auth/links.js
+          if ! get __/firebase/init.json __/firebase/init.json; then
+            # This project has no Firebase Hosting site, so build init.json from the public web config.
+            printf '%s\n' '{"apiKey":"AIzaSyDdN18QZddkf6CuxdGz_RU28OeyyPROcis","authDomain":"pokeprof-87205.firebaseapp.com","projectId":"pokeprof-87205","storageBucket":"pokeprof-87205.firebasestorage.app","messagingSenderId":"320248122173","appId":"1:320248122173:web:f17fcf8e6e6d867fd4d354"}' > __/firebase/init.json
+            echo "init.json written from web config"
+          fi
           ls -la __/auth __/firebase
 
       - name: Commit if anything changed
